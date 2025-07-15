@@ -17,7 +17,12 @@ export function calculateZScores(
     }
     const mean = window.reduce((a, b) => a + b, 0) / window.length;
     const std = Math.sqrt(window.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / window.length);
-    zScores.push(std === 0 ? 0 : (metricData[i] - mean) / std);
+    // Use consistent handling: if current value is invalid, push NaN (like when window < 2)
+    if (typeof metricData[i] !== 'number' || isNaN(metricData[i])) {
+      zScores.push(NaN);
+    } else {
+      zScores.push(std === 0 ? 0 : (metricData[i] - mean) / std);
+    }
   }
   return zScores;
 }

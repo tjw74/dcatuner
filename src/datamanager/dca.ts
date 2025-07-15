@@ -1,5 +1,7 @@
 // DCA module: regular DCA, tuned DCA, and models
 
+import { softmax } from './models/softmax';
+
 // Regular DCA calculation
 export function calculateRegularDCA(
   priceData: number[],
@@ -37,6 +39,21 @@ export function calculateTunedDCA(
   const weights = model(z);
   // Total budget for the window
   const totalBudget = budgetPerDay * (windowSize === Infinity ? priceData.length : windowSize);
+  // Ensure weights array matches data length
+  if (weights.length !== data.length) {
+    console.warn(`Weight array length (${weights.length}) doesn't match data length (${data.length})`);
+    // Pad or truncate weights to match data length
+    const adjustedWeights = Array(data.length).fill(0);
+    for (let i = 0; i < Math.min(weights.length, data.length); i++) {
+      adjustedWeights[i] = weights[i];
+    }
+    // Renormalize to ensure sum = 1
+    const sum = adjustedWeights.reduce((a, b) => a + b, 0);
+    const normalizedWeights = sum > 0 ? adjustedWeights.map(w => w / sum) : adjustedWeights.map(() => 1 / data.length);
+    const allocatedBudget = normalizedWeights.map((w) => w * totalBudget);
+    const btcBought = data.map((price, i) => (price > 0 ? allocatedBudget[i] / price : 0));
+    return btcBought;
+  }
   // Allocate budget proportionally to weights
   const allocatedBudget = weights.map((w) => w * totalBudget);
   // Calculate BTC bought each day
@@ -46,7 +63,7 @@ export function calculateTunedDCA(
 
 // Add more models here as needed
 export const dcaModels = {
-  softmax: softmaxModel,
+  softmax: softmax,
   // futureModel: (zScores: number[]) => { ... },
 };
 
