@@ -41,7 +41,7 @@ export function calculateTunedDCA(
   const totalBudget = budgetPerDay * (windowSize === Infinity ? priceData.length : windowSize);
   // Ensure weights array matches data length
   if (weights.length !== data.length) {
-    console.warn(`Weight array length (${weights.length}) doesn't match data length (${data.length})`);
+    // Handle weight array length mismatch gracefully
     // Pad or truncate weights to match data length
     const adjustedWeights = Array(data.length).fill(0);
     for (let i = 0; i < Math.min(weights.length, data.length); i++) {

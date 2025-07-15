@@ -87,46 +87,10 @@ function MetricModelRow({ metric, model, profit, btc, outperf, regProfit, regBtc
 }
 
 export default function Home() {
-  // Direct API fetch test for 'close' metric, store in state for UI display
-  const [closeSample, setCloseSample] = useState<number[] | null>(null);
-  const [dcaDebug, setDcaDebug] = useState<any>(null);
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    async function testFetchClose() {
-      const url = "https://bitcoinresearchkit.org/api/vecs/dateindex-to-close?from=-10000";
-      try {
-        const res = await fetch(url);
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setCloseSample(data.slice(-10));
-          // DCA debug
-          const WINDOW = 1460; // 4yr
-          const priceWindow = data.slice(-WINDOW);
-          // Use the same DCA logic as in the main code
-          const regDca = priceWindow.map((price) => (price > 0 ? 10 / price : 0));
-          // Fake z-scores for now
-          const z = Array(priceWindow.length).fill(0);
-          const tunedDca = priceWindow.map((price, i) => (price > 0 ? 10 / price : 0));
-          setDcaDebug({
-            WINDOW,
-            priceWindowLen: priceWindow.length,
-            regDca: regDca.slice(0, 10),
-            tunedDca: tunedDca.slice(0, 10),
-            regDcaNonZero: regDca.filter((x) => x > 0).length,
-            tunedDcaNonZero: tunedDca.filter((x) => x > 0).length,
-          });
-        }
-      } catch (e) {
-        setCloseSample([-1]);
-      }
-    }
-    testFetchClose();
-  }, []);
-
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mainCalcDebug, setMainCalcDebug] = useState<any>(null);
+  
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -142,10 +106,13 @@ export default function Home() {
       const resultsArr: any[] = [];
       Object.entries(allMetrics).forEach(([metric, data]) => {
         if (!Array.isArray(data) || data.length === 0) return;
-        // Align data to length n (pad start with NaN if needed)
-        let aligned = data.length === n ? data : Array(n - data.length).fill(NaN).concat(data.slice(-n));
+        
+        // All metrics are now guaranteed to be aligned by the API
+        // No manual padding needed - data is already properly aligned
+        const metricData = data;
+        
         // Calculate z-scores
-        const z = calculateZScores(aligned, WINDOW);
+        const z = calculateZScores(metricData, WINDOW);
         // Regular DCA
         const regDca = calculateRegularDCA(price, DCA_BUDGET, WINDOW);
         const regBtc = regDca.reduce((a, b) => a + b, 0);
@@ -156,21 +123,21 @@ export default function Home() {
         const currentPrice = priceWindow[priceWindow.length - 1];
         const regUsd = regBtc * currentPrice;
         const tunedUsd = tunedBtc * currentPrice;
-        // Profits
-        const profit = Math.round(((tunedUsd - DCA_BUDGET * WINDOW) / (DCA_BUDGET * WINDOW)) * 100);
-        const regProfit = Math.round(((regUsd - DCA_BUDGET * WINDOW) / (DCA_BUDGET * WINDOW)) * 100);
+        
+        // Profits - with division by zero protection
+        // Protects against DCA_BUDGET = 0 (totalInvestment = 0) and regBtc = 0 scenarios
+        const totalInvestment = DCA_BUDGET * WINDOW;
+        const profit = totalInvestment > 0 
+          ? Math.round(((tunedUsd - totalInvestment) / totalInvestment) * 100)
+          : 0;
+        const regProfit = totalInvestment > 0 
+          ? Math.round(((regUsd - totalInvestment) / totalInvestment) * 100)
+          : 0;
         const outperf = profit - regProfit;
-        const btcOutperf = Math.round(((tunedBtc - regBtc) / regBtc) * 100);
-        if (metric === "close") {
-          setMainCalcDebug({
-            priceWindow: priceWindow.slice(0, 10),
-            regDca: regDca.slice(0, 10),
-            tunedDca: tunedDca.slice(0, 10),
-            regUsd,
-            tunedUsd,
-            profit,
-          });
-        }
+        const btcOutperf = regBtc > 0 
+          ? Math.round(((tunedBtc - regBtc) / regBtc) * 100)
+          : 0;
+        
         resultsArr.push({
           metric,
           model: "Softmax",
@@ -213,29 +180,6 @@ export default function Home() {
         </button>
       </header>
       <main className="w-full max-w-md flex flex-col items-center px-2 mt-4">
-        {/* Debug: Show close metric sample */}
-        {closeSample && (
-          <div className="text-xs text-blue-300 mb-2 w-full text-center">
-            close metric sample: {JSON.stringify(closeSample)}
-          </div>
-        )}
-        {dcaDebug && (
-          <div className="text-xs text-yellow-300 mb-2 w-full text-center">
-            WINDOW: {dcaDebug.WINDOW}, priceWindowLen: {dcaDebug.priceWindowLen}<br />
-            regDca: {JSON.stringify(dcaDebug.regDca)}<br />
-            tunedDca: {JSON.stringify(dcaDebug.tunedDca)}<br />
-            regDcaNonZero: {dcaDebug.regDcaNonZero}, tunedDcaNonZero: {dcaDebug.tunedDcaNonZero}
-          </div>
-        )}
-        {mainCalcDebug && (
-          <div className="text-xs text-pink-300 mb-2 w-full text-center">
-            <b>Main calc debug (close):</b><br />
-            priceWindow: {JSON.stringify(mainCalcDebug.priceWindow)}<br />
-            regDca: {JSON.stringify(mainCalcDebug.regDca)}<br />
-            tunedDca: {JSON.stringify(mainCalcDebug.tunedDca)}<br />
-            regUsd: {mainCalcDebug.regUsd}, tunedUsd: {mainCalcDebug.tunedUsd}, profit: {mainCalcDebug.profit}
-          </div>
-        )}
         {loading ? (
           <div className="text-center text-blue-200 py-10">Loading results…</div>
         ) : (
