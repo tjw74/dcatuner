@@ -8,8 +8,8 @@ export function calculateZScores(
   if (!Array.isArray(metricData) || metricData.length === 0) return [];
   const zScores: number[] = [];
   for (let i = 0; i < metricData.length; i++) {
-    // Determine window start and end
-    const start = Math.max(0, i - windowSize + 1);
+    // Handle Infinity window size (all time) properly
+    const start = windowSize === Infinity ? 0 : Math.max(0, i - windowSize + 1);
     const window = metricData.slice(start, i + 1).filter((v) => typeof v === 'number' && !isNaN(v));
     if (window.length < 2) {
       zScores.push(NaN);

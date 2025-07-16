@@ -32,7 +32,12 @@ export const DERIVED_METRICS = [
       const mc = metrics['marketcap'];
       const rc = metrics['realized-cap'];
       if (!mc || !rc || mc.length !== rc.length) return [];
-      return mc.map((v, i) => (rc[i] !== 0 ? v / rc[i] : NaN));
+      return mc.map((v, i) => {
+        if (typeof v !== 'number' || typeof rc[i] !== 'number' || isNaN(v) || isNaN(rc[i]) || rc[i] === 0) {
+          return NaN;
+        }
+        return v / rc[i];
+      });
     },
   },
   {
@@ -41,7 +46,12 @@ export const DERIVED_METRICS = [
       const price = metrics['close'];
       const sma = metrics['200d-sma'];
       if (!price || !sma || price.length !== sma.length) return [];
-      return price.map((v, i) => (sma[i] !== 0 ? v / sma[i] : NaN));
+      return price.map((v, i) => {
+        if (typeof v !== 'number' || typeof sma[i] !== 'number' || isNaN(v) || isNaN(sma[i]) || sma[i] === 0) {
+          return NaN;
+        }
+        return v / sma[i];
+      });
     },
   },
 ]; 

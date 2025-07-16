@@ -8,10 +8,10 @@ export async function GET() {
   try {
     const rawMetrics = await fetchAllMetrics(DEFAULT_API_BASE);
     const derivedMetrics = calculateDerivedMetrics(rawMetrics);
-    // Return a sample (first 5 values) for each metric
+    // Return a sample (last 5 values) for each metric
     const sample = (obj: Record<string, number[]>) =>
       Object.fromEntries(
-        Object.entries(obj).map(([k, v]) => [k, v.slice(0, 5)])
+        Object.entries(obj).map(([k, v]) => [k, v.slice(-5)])
       );
     return NextResponse.json({
       raw: sample(rawMetrics),

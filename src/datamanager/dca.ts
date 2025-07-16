@@ -16,12 +16,8 @@ export function calculateRegularDCA(
 }
 
 // Softmax model for allocation weights
-export function softmaxModel(zScores: number[]): number[] {
-  // Softmax transformation (numerical stability)
-  const max = Math.max(...zScores.map((z) => (isFinite(z) ? z : 0)));
-  const expScores = zScores.map((z) => Math.exp((isFinite(z) ? z : 0) - max));
-  const sumExp = expScores.reduce((a, b) => a + b, 0);
-  return expScores.map((e) => (sumExp === 0 ? 0 : e / sumExp));
+export function softmaxModel(zScores: number[], temperature: number = 1.0): number[] {
+  return softmax(zScores, temperature);
 }
 
 // Tuned DCA calculation using a model (e.g., softmax)
@@ -30,15 +26,17 @@ export function calculateTunedDCA(
   zScores: number[],
   budgetPerDay: number,
   windowSize: number,
-  model: (zScores: number[]) => number[]
+  model: (zScores: number[], temperature?: number) => number[],
+  temperature: number = 1.0
 ): number[] {
   // Only consider the last windowSize days
   const data = windowSize === Infinity ? priceData : priceData.slice(-windowSize);
   const z = windowSize === Infinity ? zScores : zScores.slice(-windowSize);
   // Get allocation weights from model
-  const weights = model(z);
+  const weights = model(z, temperature);
   // Total budget for the window
-  const totalBudget = budgetPerDay * (windowSize === Infinity ? priceData.length : windowSize);
+  const actualWindowSize = windowSize === Infinity ? data.length : windowSize;
+  const totalBudget = budgetPerDay * actualWindowSize;
   // Ensure weights array matches data length
   if (weights.length !== data.length) {
     // Handle weight array length mismatch gracefully
@@ -72,11 +70,12 @@ export function getAllTunedDCAResults(
   priceData: number[],
   zScores: number[],
   budgetPerDay: number,
-  windowSize: number
+  windowSize: number,
+  temperature: number = 1.0
 ): Record<string, number[]> {
   const results: Record<string, number[]> = {};
   for (const [name, model] of Object.entries(dcaModels)) {
-    results[name] = calculateTunedDCA(priceData, zScores, budgetPerDay, windowSize, model);
+    results[name] = calculateTunedDCA(priceData, zScores, budgetPerDay, windowSize, model, temperature);
   }
   return results;
 } 
