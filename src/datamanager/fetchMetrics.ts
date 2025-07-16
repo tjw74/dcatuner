@@ -1,3 +1,5 @@
+// This code passed review, it works, it's frozen
+
 import { METRICS_LIST } from './metricsConfig';
 
 const DEFAULT_API_BASE = "https://bitcoinresearchkit.org";

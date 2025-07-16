@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { fetchAllMetrics, type MetricData } from '@/datamanager';
 import { METRICS_LIST } from '@/datamanager/metricsConfig';
+import { calculateZScores, Z_SCORE_WINDOWS } from '@/datamanager/zScore';
 import dynamic from 'next/dynamic';
 
 // Dynamically import Plotly to avoid SSR issues
@@ -71,7 +72,7 @@ function TimeRangeSlider({
         
         {/* Selected range */}
         <div
-          className="absolute top-1/2 h-0.5 bg-blue-500 transform -translate-y-1/2"
+          className="absolute top-1/2 h-0.5 bg-gray-600 transform -translate-y-1/2"
           style={{
             left: `${startPercent}%`,
             width: `${endPercent - startPercent}%`
@@ -80,14 +81,14 @@ function TimeRangeSlider({
         
         {/* Start handle */}
         <div
-          className="absolute top-1/2 w-3 h-3 bg-white border-2 border-blue-500 rounded-full transform -translate-y-1/2 cursor-pointer hover:scale-110 transition-transform"
+          className="absolute top-1/2 w-3 h-3 bg-white border-2 border-gray-600 rounded-full transform -translate-y-1/2 cursor-pointer hover:scale-110 transition-transform"
           style={{ left: `${startPercent}%`, marginLeft: '-6px' }}
           onMouseDown={handleMouseDown('start')}
         />
         
         {/* End handle */}
         <div
-          className="absolute top-1/2 w-3 h-3 bg-white border-2 border-blue-500 rounded-full transform -translate-y-1/2 cursor-pointer hover:scale-110 transition-transform"
+          className="absolute top-1/2 w-3 h-3 bg-white border-2 border-gray-600 rounded-full transform -translate-y-1/2 cursor-pointer hover:scale-110 transition-transform"
           style={{ left: `${endPercent}%`, marginLeft: '-6px' }}
           onMouseDown={handleMouseDown('end')}
         />
@@ -100,7 +101,7 @@ export default function ChartsPage() {
   const [data, setData] = useState<MetricData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [scaleTypes, setScaleTypes] = useState<Record<string, 'linear' | 'log'>>({});
+
   const [timeRanges, setTimeRanges] = useState<Record<string, [number, number]>>({});
 
   useEffect(() => {
@@ -111,14 +112,11 @@ export default function ChartsPage() {
         setData(result);
         setError(null);
         
-        // Initialize scale types (default to log for most metrics)
-        const initialScaleTypes: Record<string, 'linear' | 'log'> = {};
+        // Initialize time ranges
         const initialTimeRanges: Record<string, [number, number]> = {};
         METRICS_LIST.forEach(metric => {
-          initialScaleTypes[metric] = 'log';
           initialTimeRanges[metric] = [0, result.dates.length - 1];
         });
-        setScaleTypes(initialScaleTypes);
         setTimeRanges(initialTimeRanges);
         
       } catch (err) {
@@ -131,12 +129,7 @@ export default function ChartsPage() {
     loadData();
   }, []);
 
-  const toggleScaleType = (metric: string) => {
-    setScaleTypes(prev => ({
-      ...prev,
-      [metric]: prev[metric] === 'log' ? 'linear' : 'log'
-    }));
-  };
+
 
   const updateTimeRange = (metric: string, newRange: [number, number]) => {
     setTimeRanges(prev => ({
@@ -191,55 +184,48 @@ export default function ChartsPage() {
             const values = data.metrics[metric];
             if (!values || values.length === 0) {
               return (
-                <div key={metric} className="bg-gray-900 p-4 rounded-lg">
+                <div key={metric} className="bg-black border border-gray-600 p-4 rounded-lg">
                   <h3 className="text-white font-semibold mb-2">{metric}</h3>
                   <div className="text-red-400">No data available</div>
                 </div>
               );
             }
 
-            const currentScaleType = scaleTypes[metric] || 'log';
             const currentTimeRange = timeRanges[metric] || [0, values.length - 1];
+            
+            // Calculate z-scores for the metric (using 4-year window)
+            const zScores = calculateZScores(values, Z_SCORE_WINDOWS['4yr']);
             
             // Filter data based on time range
             const filteredDates = data.dates.slice(currentTimeRange[0], currentTimeRange[1] + 1);
             const filteredValues = values.slice(currentTimeRange[0], currentTimeRange[1] + 1);
+            const filteredZScores = zScores.slice(currentTimeRange[0], currentTimeRange[1] + 1);
             
             // Get latest value and date from filtered data
             const latestIndex = filteredValues.length - 1;
             const latestValue = filteredValues[latestIndex];
             const latestDate = filteredDates[latestIndex];
+            const latestZScore = filteredZScores[latestIndex];
             
             // Format the latest value for display
             const formattedValue = typeof latestValue === 'number' ? 
               (latestValue > 1000 ? latestValue.toLocaleString() : latestValue.toFixed(4)) : 
               'N/A';
             
+            // Format the latest z-score for display
+            const formattedZScore = typeof latestZScore === 'number' && !isNaN(latestZScore) ? 
+              latestZScore.toFixed(2) : 
+              'N/A';
+            
             return (
-              <div key={metric} className="bg-gray-900 p-4 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
+              <div key={metric} className="bg-black border border-gray-600 p-4 rounded-lg">
+                <div className="mb-2">
                   <h3 className="text-white font-semibold">
                     {metric}
                     <span className="text-sm text-gray-400 ml-2">
-                      {latestDate}: {formattedValue}
+                      {latestDate}: {formattedValue} | Z: {formattedZScore}
                     </span>
                   </h3>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-400">LIN</span>
-                    <button
-                      onClick={() => toggleScaleType(metric)}
-                      className={`relative w-8 h-4 rounded-full transition-colors focus:outline-none ${
-                        currentScaleType === 'log' ? 'bg-blue-600' : 'bg-gray-600'
-                      }`}
-                    >
-                      <div
-                        className={`absolute w-3 h-3 bg-white rounded-full top-0.5 transition-transform ${
-                          currentScaleType === 'log' ? 'translate-x-4' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </button>
-                    <span className="text-xs text-gray-400">LOG</span>
-                  </div>
                 </div>
                 <Plot
                   data={[
@@ -250,13 +236,23 @@ export default function ChartsPage() {
                       mode: 'lines',
                       name: `${metric} (Latest: ${formattedValue})`,
                       line: { color: '#3b82f6', width: 1 },
+                      yaxis: 'y',
+                    },
+                    {
+                      x: filteredDates,
+                      y: filteredZScores,
+                      type: 'scatter',
+                      mode: 'lines',
+                      name: `Z-Score (Latest: ${formattedZScore})`,
+                      line: { color: '#ef4444', width: 1 },
+                      yaxis: 'y2',
                     },
                   ]}
                   layout={{
                     width: 600,
                     height: 400,
-                    plot_bgcolor: '#1f2937',
-                    paper_bgcolor: '#1f2937',
+                    plot_bgcolor: '#000000',
+                    paper_bgcolor: '#000000',
                     font: { color: '#ffffff' },
                     xaxis: {
                       title: 'Date',
@@ -265,16 +261,35 @@ export default function ChartsPage() {
                     },
                     yaxis: {
                       title: metric,
-                      type: currentScaleType === 'linear' ? 'linear' : 'log',
+                      type: 'log',
                       gridcolor: '#374151',
                       color: '#ffffff',
+                      side: 'left',
                     },
-                    margin: { l: 60, r: 20, t: 20, b: 60 },
+                    yaxis2: {
+                      title: 'Z-Score',
+                      type: 'linear',
+                      gridcolor: '#374151',
+                      color: '#ffffff',
+                      side: 'right',
+                      overlaying: 'y',
+                      showgrid: false,
+                    },
+                    legend: {
+                      orientation: 'h',
+                      x: 0.5,
+                      y: -0.1,
+                      xanchor: 'center',
+                      yanchor: 'top',
+                    },
+                    margin: { l: 60, r: 60, t: 20, b: 80 },
                   }}
                   config={{
                     displayModeBar: false,
                     staticPlot: false,
+                    responsive: true,
                   }}
+                  useResizeHandler={true}
                 />
                 <TimeRangeSlider
                   min={0}
