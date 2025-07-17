@@ -100,6 +100,13 @@ function SettingsMenu({ isOpen, onClose, settings, onSettingsChange }: any) {
               View Charts
             </a>
           </div>
+
+          <button
+            className="w-full mt-4 bg-neutral-900 text-white border border-neutral-700 rounded px-4 py-2 hover:bg-neutral-800 transition"
+            onClick={() => window.location.href = '/dcadash'}
+          >
+            DCA Verification
+          </button>
         </div>
       </div>
     </div>
