@@ -549,7 +549,7 @@ const DCAChart = memo(function DCAChart({
   const latestReg = regCum[latestIdx];
   const latestTuned = tunedCum[latestIdx];
   return (
-    <div className="bg-black border border-gray-600 p-4 rounded-lg mb-8">
+    <div className="bg-black border border-gray-600 p-4 rounded-lg mb-8 w-full h-[500px] flex flex-col">
       <div className="mb-2">
         <h3 className="text-white font-semibold">
           DCA Comparison
@@ -558,79 +558,84 @@ const DCAChart = memo(function DCAChart({
           </span>
         </h3>
       </div>
-      <Plot
-        data={[
-          {
-            x: filteredDates,
-            y: filteredPrice,
-            type: 'scatter',
-            mode: 'lines',
-            name: 'Close Price',
-            line: { color: '#3b82f6', width: 1 },
-            yaxis: 'y',
-          },
-          {
-            x: filteredDates,
-            y: regCum,
-            type: 'scatter',
-            mode: 'lines',
-            name: 'Regular DCA (BTC)',
-            line: { color: '#10b981', width: 1.5 },
-            yaxis: 'y2',
-          },
-          {
-            x: filteredDates,
-            y: tunedCum,
-            type: 'scatter',
-            mode: 'lines',
-            name: 'Tuned DCA (BTC)',
-            line: { color: '#ef4444', width: 1.5 },
-            yaxis: 'y2',
-          },
-        ]}
-        layout={{
-          width: 600,
-          height: 400,
-          plot_bgcolor: '#000000',
-          paper_bgcolor: '#000000',
-          font: { color: '#ffffff' },
-          xaxis: {
-            title: 'Date',
-            gridcolor: '#374151',
-            color: '#ffffff',
-          },
-          yaxis: {
-            title: 'Close Price',
-            type: 'log',
-            gridcolor: '#374151',
-            color: '#ffffff',
-            side: 'left',
-          },
-          yaxis2: {
-            title: 'Cumulative BTC',
-            type: 'linear',
-            gridcolor: '#374151',
-            color: '#ffffff',
-            side: 'right',
-            overlaying: 'y',
-            showgrid: false,
-          },
-          legend: {
-            orientation: 'h',
-            x: 0.5,
-            y: -0.1,
-            xanchor: 'center',
-            yanchor: 'top',
-          },
-          margin: { l: 60, r: 60, t: 20, b: 80 },
-        }}
-        config={{
-          displayModeBar: false,
-          staticPlot: false,
-          responsive: true,
-        }}
-        useResizeHandler={true}
-      />
+      <div className="flex-1 w-full h-full">
+        <Plot
+          data={[
+            {
+              x: filteredDates,
+              y: filteredPrice,
+              type: 'scatter',
+              mode: 'lines',
+              name: 'Close Price',
+              line: { color: '#3b82f6', width: 1 },
+              yaxis: 'y',
+            },
+            {
+              x: filteredDates,
+              y: regCum,
+              type: 'scatter',
+              mode: 'lines',
+              name: 'Regular DCA (BTC)',
+              line: { color: '#10b981', width: 1.5 },
+              yaxis: 'y2',
+            },
+            {
+              x: filteredDates,
+              y: tunedCum,
+              type: 'scatter',
+              mode: 'lines',
+              name: 'Tuned DCA (BTC)',
+              line: { color: '#ef4444', width: 1.5 },
+              yaxis: 'y2',
+            },
+          ]}
+          layout={{
+            autosize: true,
+            width: undefined,
+            height: undefined,
+            plot_bgcolor: '#000000',
+            paper_bgcolor: '#000000',
+            font: { color: '#ffffff' },
+            xaxis: {
+              title: 'Date',
+              gridcolor: '#374151',
+              color: '#ffffff',
+            },
+            yaxis: {
+              title: 'Close Price',
+              type: 'log',
+              gridcolor: '#374151',
+              color: '#ffffff',
+              side: 'left',
+            },
+            yaxis2: {
+              title: 'Cumulative BTC',
+              type: 'linear',
+              gridcolor: '#374151',
+              color: '#ffffff',
+              side: 'right',
+              overlaying: 'y',
+              showgrid: false,
+            },
+            legend: {
+              orientation: 'h',
+              x: 0.5,
+              y: -0.1,
+              xanchor: 'center',
+              yanchor: 'top',
+            },
+            margin: { l: 60, r: 60, t: 20, b: 80 },
+          }}
+          config={{
+            displayModeBar: false,
+            staticPlot: false,
+            responsive: true,
+          }}
+          useResizeHandler={true}
+          className="w-full h-full"
+          style={{ width: '100%', height: '100%' }}
+        />
+      </div>
       <TimeRangeSlider
         min={0}
         max={dates.length - 1}
@@ -803,6 +808,21 @@ export default function ChartsPage() {
     });
   }, []);
 
+  // Find close price and z-scores for DCA chart
+  const closeMetric = optimizedData?.close;
+  const price = closeMetric?.values || [];
+  const zScores = closeMetric?.zScores || [];
+  const dates = closeMetric?.dates || [];
+
+  // After dates are loaded, set default to last 2 years
+  useEffect(() => {
+    if (dcaTimeRange === null && dates && dates.length > 0) {
+      const total = dates.length;
+      const twoYears = 730;
+      setDcaTimeRange([Math.max(0, total - twoYears), total - 1]);
+    }
+  }, [dates, dcaTimeRange]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white p-8">
@@ -836,11 +856,6 @@ export default function ChartsPage() {
     );
   }
 
-  // Find close price and z-scores for DCA chart
-  const closeMetric = optimizedData?.close;
-  const price = closeMetric?.values || [];
-  const zScores = closeMetric?.zScores || [];
-  const dates = closeMetric?.dates || [];
   // DCA chart time range (default: full range)
   const dcaRange = dcaTimeRange || [0, dates.length - 1];
 
