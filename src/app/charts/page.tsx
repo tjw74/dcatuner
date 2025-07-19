@@ -1,19 +1,16 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, useRef, memo, useDeferredValue } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
 import { fetchAllMetrics, type MetricData } from '@/datamanager';
 import { METRICS_LIST, DERIVED_METRICS } from '@/datamanager/metricsConfig';
 import { calculateZScores, Z_SCORE_WINDOWS } from '@/datamanager/zScore';
 import { calculateDerivedMetrics } from '@/datamanager/derivedMetrics';
 import dynamic from 'next/dynamic';
 import { calculateRegularDCA, calculateTunedDCA, softmaxModel } from '@/datamanager/dca';
-import { Menu, X } from 'lucide-react';
-import Link from 'next/link';
-
 
 // Simple performance monitoring hook
 function usePerformanceMonitor() {
-  const [renderCount, setRenderCount] = useState(0);
   const [fps, setFps] = useState(0);
   const renderCountRef = useRef(0);
 
@@ -47,12 +44,22 @@ function usePerformanceMonitor() {
 
 // Memory usage monitor
 function useMemoryMonitor() {
-  const [memoryUsage, setMemoryUsage] = useState<any>(null);
+  const [memoryUsage, setMemoryUsage] = useState<{
+    usedJSHeapSize: number;
+    totalJSHeapSize: number;
+    jsHeapSizeLimit: number;
+  } | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
       if ('memory' in performance) {
-        setMemoryUsage((performance as any).memory);
+        setMemoryUsage((performance as Performance & { 
+          memory: {
+            usedJSHeapSize: number;
+            totalJSHeapSize: number;
+            jsHeapSizeLimit: number;
+          }
+        }).memory);
       }
     }, 1000);
 
@@ -268,27 +275,25 @@ const ChartComponent = memo(function ChartComponent({
     
     // Get latest value and date from filtered data
     const latestIndex = filteredValues.length - 1;
-    const latestValue = filteredValues[latestIndex];
     const latestDate = filteredDates[latestIndex];
-    const latestZScore = filteredZScores[latestIndex];
     
     // Format the latest value for display
-    const formattedValue = typeof latestValue === 'number' ? 
-      (latestValue > 1000 ? latestValue.toLocaleString() : latestValue.toFixed(4)) : 
+    const formattedValue = typeof filteredValues[latestIndex] === 'number' ? 
+      (filteredValues[latestIndex] > 1000 ? filteredValues[latestIndex].toLocaleString() : filteredValues[latestIndex].toFixed(4)) : 
       'N/A';
     
     // Format the latest z-score for display
-    const formattedZScore = typeof latestZScore === 'number' && !isNaN(latestZScore) ? 
-      latestZScore.toFixed(2) : 
+    const formattedZScore = typeof filteredZScores[latestIndex] === 'number' && !isNaN(filteredZScores[latestIndex]) ? 
+      filteredZScores[latestIndex].toFixed(2) : 
       'N/A';
     
     return {
       filteredDates,
       filteredValues,
       filteredZScores,
-      latestValue,
+      latestValue: filteredValues[latestIndex],
       latestDate,
-      latestZScore,
+      latestZScore: filteredZScores[latestIndex],
       formattedValue,
       formattedZScore
     };
@@ -298,9 +303,7 @@ const ChartComponent = memo(function ChartComponent({
     filteredDates, 
     filteredValues, 
     filteredZScores, 
-    latestValue, 
     latestDate, 
-    latestZScore, 
     formattedValue, 
     formattedZScore 
   } = filteredData;
@@ -532,7 +535,6 @@ const DCAChart = memo(function DCAChart({
 }) {
   // DCA params
   const DCA_BUDGET = 10; // $10/day
-  const windowSize = dates.length;
   // Filtered data
   const filteredDates = dates.slice(timeRange[0], timeRange[1] + 1);
   const filteredPrice = price.slice(timeRange[0], timeRange[1] + 1);
@@ -647,27 +649,7 @@ const DCAChart = memo(function DCAChart({
   );
 });
 
-// Settings menu component for charts page
-function SettingsMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-16">
-      <div className="bg-black border border-gray-700 rounded-lg p-6 w-80 max-w-[90vw] shadow-xl">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-white">Menu</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-800 rounded">
-            <X className="w-5 h-5 text-gray-400" />
-          </button>
-        </div>
-        <div className="space-y-6">
-          <Link href="/" className="block w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white hover:bg-gray-700 text-center" onClick={onClose}>
-            Home
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
+
 
 export default function ChartsPage() {
   const [data, setData] = useState<MetricData | null>(null);
@@ -679,7 +661,6 @@ export default function ChartsPage() {
   const [timeRanges, setTimeRanges] = useState<Record<string, [number, number]>>({});
   // DCA chart time range state
   const [dcaTimeRange, setDcaTimeRange] = useState<[number, number] | null>(null);
-  const [showMenu, setShowMenu] = useState(false);
   
   // Pre-calculate filtered datasets including derived metrics
   const optimizedData = useMemo(() => {
@@ -812,7 +793,7 @@ export default function ChartsPage() {
   const closeMetric = optimizedData?.close;
   const price = closeMetric?.values || [];
   const zScores = closeMetric?.zScores || [];
-  const dates = closeMetric?.dates || [];
+  const dates = useMemo(() => closeMetric?.dates || [], [closeMetric?.dates]);
 
   // After dates are loaded, set default to last 2 years
   useEffect(() => {
@@ -862,18 +843,10 @@ export default function ChartsPage() {
   return (
     <div className="min-h-screen bg-black text-white p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header with menu icon */}
+        {/* Header without menu icon */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Data Verification Charts</h1>
-          <button
-            onClick={() => setShowMenu(true)}
-            className="p-2 rounded-full hover:bg-[#222] transition-colors"
-            aria-label="Open menu"
-          >
-            <Menu className="w-6 h-6 text-[#aaa]" />
-          </button>
         </div>
-        <SettingsMenu isOpen={showMenu} onClose={() => setShowMenu(false)} />
         <div className="text-gray-400 mb-4">
           Data points: {data.dates.length} | Date range: {data.dates[0]} to {data.dates[data.dates.length - 1]}
         </div>
@@ -1017,7 +990,7 @@ export default function ChartsPage() {
               metricsToRender = allMetricsList.slice(startIndex, endIndex);
             }
             
-            return metricsToRender.map((metric, index) => {
+            return metricsToRender.map((metric) => {
               // Special handling for MVRV Ratio composite chart
               if (metric === 'MVRV Ratio') {
                 const mvrvData = optimizedData?.['MVRV Ratio'];

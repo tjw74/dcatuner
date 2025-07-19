@@ -1,19 +1,33 @@
 "use client";
 import Image from "next/image";
 import { useState, useEffect } from "react";
-import { Menu, Crown, ChevronRight, X } from "lucide-react";
+import { Crown, ChevronRight, X } from "lucide-react";
 import { fetchAllMetrics } from "@/datamanager";
 import { calculateDerivedMetrics } from "@/datamanager/derivedMetrics";
 import { calculateZScores, Z_SCORE_WINDOWS } from "@/datamanager/zScore";
 import { calculateRegularDCA, calculateTunedDCA, softmaxModel } from "@/datamanager/dca";
-import { METRICS_LIST, DERIVED_METRICS } from "@/datamanager/metricsConfig";
 
 const GRAFANA_BLUE = "#0094FF";
 const LIGHTER_BLACK = "#181A20";
 const DCA_BUDGET = 10; // $10/day
 
 // Settings menu component
-function SettingsMenu({ isOpen, onClose, settings, onSettingsChange }: any) {
+function SettingsMenu({ isOpen, onClose, settings, onSettingsChange }: {
+  isOpen: boolean;
+  onClose: () => void;
+  settings: {
+    dcaTimeRange: string;
+    zScoreRange: string;
+    softmaxAlpha: number;
+    dataSource: string;
+  };
+  onSettingsChange: (settings: {
+    dcaTimeRange: string;
+    zScoreRange: string;
+    softmaxAlpha: number;
+    dataSource: string;
+  }) => void;
+}) {
   if (!isOpen) return null;
 
   return (
@@ -113,7 +127,18 @@ function SettingsMenu({ isOpen, onClose, settings, onSettingsChange }: any) {
   );
 }
 
-function TopPerformerCard({ metric, model, profit, btc, outperf, regProfit, regBtc, btcOutperf, expanded, onClick }: any) {
+function TopPerformerCard({ metric, model, profit, btc, outperf, regProfit, regBtc, btcOutperf, expanded, onClick }: {
+  metric: string;
+  model: string;
+  profit: number;
+  btc: string;
+  outperf: number;
+  regProfit: number;
+  regBtc: string;
+  btcOutperf: number;
+  expanded: boolean;
+  onClick: () => void;
+}) {
   return (
     <div className="w-full rounded-2xl mb-8 border shadow-lg relative overflow-hidden"
       style={{
@@ -167,7 +192,19 @@ function TopPerformerCard({ metric, model, profit, btc, outperf, regProfit, regB
   );
 }
 
-function MetricModelRow({ metric, model, profit, btc, outperf, regProfit, regBtc, btcOutperf, rank, expanded, onClick }: any) {
+function MetricModelRow({ metric, model, profit, btc, outperf, regProfit, regBtc, btcOutperf, rank, expanded, onClick }: {
+  metric: string;
+  model: string;
+  profit: number;
+  btc: string;
+  outperf: number;
+  regProfit: number;
+  regBtc: string;
+  btcOutperf: number;
+  rank: number;
+  expanded: boolean;
+  onClick: () => void;
+}) {
   return (
     <div className="w-full mb-3 rounded-xl border shadow-sm relative min-h-[56px] overflow-hidden"
       style={{ background: LIGHTER_BLACK, borderColor: GRAFANA_BLUE }}
@@ -220,7 +257,16 @@ function MetricModelRow({ metric, model, profit, btc, outperf, regProfit, regBtc
 export default function Home() {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [topCardExpanded, setTopCardExpanded] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<Array<{
+    metric: string;
+    model: string;
+    profit: number;
+    btc: string;
+    outperf: number;
+    regProfit: number;
+    regBtc: string;
+    btcOutperf: number;
+  }>>([]);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState({
@@ -245,8 +291,16 @@ export default function Home() {
       const allMetrics: Record<string, number[]> = { ...metricData.metrics, ...derived };
       // 4. Prepare results for each metric+model (softmax only for now)
       const price = allMetrics["close"];
-      const n = price?.length || 0;
-      const resultsArr: any[] = [];
+      const resultsArr: Array<{
+        metric: string;
+        model: string;
+        profit: number;
+        btc: string;
+        outperf: number;
+        regProfit: number;
+        regBtc: string;
+        btcOutperf: number;
+      }> = [];
       Object.entries(allMetrics).forEach(([metric, data]) => {
         if (!Array.isArray(data) || data.length === 0) return;
         
@@ -328,7 +382,7 @@ export default function Home() {
           onClick={() => setShowSettings(true)}
           className="p-2 rounded-full hover:bg-[#222] transition-colors"
         >
-          <Menu className="w-6 h-6 text-[#aaa]" />
+          {/* Menu icon removed as per edit hint */}
         </button>
       </header>
       <main className="w-full max-w-md flex flex-col items-center px-2 mt-4">

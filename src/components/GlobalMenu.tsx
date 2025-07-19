@@ -8,7 +8,7 @@ export default function GlobalMenu() {
   const [showMenu, setShowMenu] = useState(false);
   const { settings, setSettings } = useSettings();
 
-  const handleSettingChange = (key: keyof Settings, value: any) => {
+  const handleSettingChange = (key: keyof Settings, value: string | number) => {
     setSettings((prev: Settings) => ({ ...prev, [key]: value }));
   };
 
