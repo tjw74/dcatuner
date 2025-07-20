@@ -310,20 +310,44 @@ export default function Home() {
         
         // Calculate z-scores using the z-score window setting
         const z = calculateZScores(metricData, zScoreWindow);
-        // Regular DCA using the DCA window setting
-        const regDca = calculateRegularDCA(price, DCA_BUDGET, dcaWindow);
+        
+        // Debug: Log z-scores for first few metrics
+        if (metric === 'close' || metric === 'realized-price') {
+          console.log(`DEBUG ${metric}:`);
+          console.log(`  Z-scores length: ${z.length}`);
+          console.log(`  Sample z-scores: [${z.slice(-5).map(z => z.toFixed(3)).join(', ')}]`);
+          console.log(`  Valid z-scores: ${z.filter(z => !isNaN(z) && isFinite(z)).length}/${z.length}`);
+        }
+        
+        // Fix: Use actual DCA window based on available data
+        const actualDcaWindow = Math.min(dcaWindow, metricData.length);
+        const priceWindow = price.slice(-actualDcaWindow);
+        const metricWindow = metricData.slice(-actualDcaWindow);
+        
+        // Regular DCA using Bitcoin price data
+        const regDca = calculateRegularDCA(price, DCA_BUDGET, actualDcaWindow);
         const regBtc = regDca.reduce((a, b) => a + b, 0);
-        const priceWindow = price.slice(-dcaWindow);
-        // Tuned DCA using the DCA window setting and softmax alpha from settings
-        const tunedDca = calculateTunedDCA(price, z, DCA_BUDGET, dcaWindow, softmaxModel, settings.softmaxAlpha);
+        
+        // Tuned DCA using Bitcoin price data but metric z-scores for allocation
+        const tunedDca = calculateTunedDCA(price, z, DCA_BUDGET, actualDcaWindow, softmaxModel, settings.softmaxAlpha);
         const tunedBtc = tunedDca.reduce((a, b) => a + b, 0);
+        
+        // Debug: Log DCA results for first few metrics
+        if (metric === 'close' || metric === 'realized-price') {
+          const regInvestment = regDca.reduce((sum, btc, i) => sum + (btc * priceWindow[i]), 0);
+          const tunedInvestment = tunedDca.reduce((sum, btc, i) => sum + (btc * priceWindow[i]), 0);
+          console.log(`  Regular BTC: ${regBtc.toFixed(6)}, Investment: $${regInvestment.toFixed(2)}`);
+          console.log(`  Tuned BTC: ${tunedBtc.toFixed(6)}, Investment: $${tunedInvestment.toFixed(2)}`);
+          console.log(`  Expected investment: $${DCA_BUDGET * actualDcaWindow}`);
+        }
+        
         const currentPrice = priceWindow[priceWindow.length - 1];
         const regUsd = regBtc * currentPrice;
         const tunedUsd = tunedBtc * currentPrice;
         
         // Profits - with division by zero protection
         // Protects against DCA_BUDGET = 0 (totalInvestment = 0) and regBtc = 0 scenarios
-        const totalInvestment = DCA_BUDGET * dcaWindow;
+        const totalInvestment = DCA_BUDGET * actualDcaWindow;
         const profit = totalInvestment > 0 
           ? Math.round(((tunedUsd - totalInvestment) / totalInvestment) * 100)
           : 0;
@@ -334,6 +358,15 @@ export default function Home() {
         const btcOutperf = regBtc > 0 
           ? Math.round(((tunedBtc - regBtc) / regBtc) * 100)
           : 0;
+        
+        // Debug: Log final results for first few metrics
+        if (metric === 'close' || metric === 'realized-price') {
+          console.log(`  Tuned profit: ${profit}%, Regular profit: ${regProfit}%`);
+          console.log(`  Current price: $${currentPrice.toLocaleString()}`);
+          console.log(`  Tuned USD: $${tunedUsd.toFixed(2)}, Regular USD: $${regUsd.toFixed(2)}`);
+          console.log(`  Total investment: $${totalInvestment.toFixed(2)}`);
+          console.log('');
+        }
         
         resultsArr.push({
           metric,

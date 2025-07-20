@@ -55,6 +55,14 @@ export function calculateTunedDCA(
     dataSample: data.slice(0, 5)
   });
   
+  // Additional debug for weights
+  console.log('Weights Debug:', {
+    weightsLength: weights.length,
+    weightsSum: weights.reduce((a, b) => a + b, 0),
+    weightsRange: `${Math.min(...weights).toFixed(6)} to ${Math.max(...weights).toFixed(6)}`,
+    sampleWeights: weights.slice(0, 10).map(w => w.toFixed(6))
+  });
+  
   // Ensure weights array matches data length
   if (weights.length !== data.length) {
     console.error('Weight length mismatch:', { weightsLength: weights.length, dataLength: data.length });
@@ -67,11 +75,14 @@ export function calculateTunedDCA(
     const sum = adjustedWeights.reduce((a, b) => a + b, 0);
     const normalizedWeights = sum > 0 ? adjustedWeights.map(w => w / sum) : adjustedWeights.map(() => 1 / data.length);
     
-    // Each day spends budgetPerDay * weight (weights sum to 1, so this averages to budgetPerDay)
+    // Calculate total budget for the period
+    const totalBudget = budgetPerDay * data.length;
+    
+    // Allocate the total budget across days based on weights
     const btcBought = data.map((price, i) => {
       if (price <= 0) return 0;
       const weight = normalizedWeights[i];
-      const dailySpend = budgetPerDay * weight;
+      const dailySpend = totalBudget * weight; // This ensures total spend = totalBudget
       return dailySpend / price; // BTC = dailySpend / price
     });
     
@@ -84,27 +95,31 @@ export function calculateTunedDCA(
     return btcBought;
   }
   
-  // Each day spends budgetPerDay * weight (weights sum to 1, so this averages to budgetPerDay)
+  // Calculate total budget for the period
+  const totalBudget = budgetPerDay * data.length;
+  
+  // Allocate the total budget across days based on weights
   const btcBought = data.map((price, i) => {
     if (price <= 0) return 0;
     const weight = weights[i];
-    const dailySpend = budgetPerDay * weight;
+    const dailySpend = totalBudget * weight; // This ensures total spend = totalBudget
     return dailySpend / price; // BTC = dailySpend / price
   });
   
-  // Verify total investment matches regular DCA
+  // Verify total investment matches regular DCA exactly
   const totalInvestment = btcBought.reduce((sum, btc, i) => sum + (btc * data[i]), 0);
   const expectedInvestment = budgetPerDay * data.length;
   console.log('DCA Verification:', {
-    totalInvestment,
-    expectedInvestment,
-    difference: totalInvestment - expectedInvestment,
-    averageDailySpend: totalInvestment / data.length,
-    weightsSum: weights.reduce((a, b) => a + b, 0),
-    sampleWeights: weights.slice(0, 5),
-    sampleSpending: btcBought.slice(0, 5).map((btc, i) => btc * data[i]),
-    sampleBTC: btcBought.slice(0, 5),
-    totalBTC: btcBought.reduce((a, b) => a + b, 0)
+    totalInvestment: totalInvestment.toFixed(2),
+    expectedInvestment: expectedInvestment.toFixed(2),
+    difference: (totalInvestment - expectedInvestment).toFixed(2),
+    budgetMatch: Math.abs(totalInvestment - expectedInvestment) < 0.01 ? '✅ EXACT MATCH' : '❌ MISMATCH',
+    averageDailySpend: (totalInvestment / data.length).toFixed(2),
+    weightsSum: weights.reduce((a, b) => a + b, 0).toFixed(6),
+    sampleWeights: weights.slice(0, 5).map(w => w.toFixed(6)),
+    sampleSpending: btcBought.slice(0, 5).map((btc, i) => (btc * data[i]).toFixed(2)),
+    sampleBTC: btcBought.slice(0, 5).map(btc => btc.toFixed(6)),
+    totalBTC: btcBought.reduce((a, b) => a + b, 0).toFixed(6)
   });
   
   return btcBought;

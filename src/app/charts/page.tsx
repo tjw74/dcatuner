@@ -540,42 +540,47 @@ const DCAChart = memo(function DCAChart({
   softmaxAlpha: number;
 }) {
   const [showDaily, setShowDaily] = useState(true); // DEFAULT TO SHOWING DAILY BTC PURCHASES
+  const [localSoftmaxAlpha, setLocalSoftmaxAlpha] = useState(softmaxAlpha);
   
-  // Use the last 2 years of data for DCA calculations (rolling window)
-  const priceWindow = price.slice(-dcaWindow);
-  const zWindow = zScores.slice(-dcaWindow);
-  const datesWindow = dates.slice(-dcaWindow);
+  // Use the timeRange to determine which data to show and calculate DCA for
+  const [startIdx, endIdx] = timeRange;
+  const selectedPrice = price.slice(startIdx, endIdx + 1);
+  const selectedZScores = zScores.slice(startIdx, endIdx + 1);
+  const selectedDates = dates.slice(startIdx, endIdx + 1);
   
-  // DCA calculations using 2-year rolling window
-  const regDca = calculateRegularDCA(priceWindow, DCA_BUDGET, dcaWindow);
-  const tunedDca = calculateTunedDCA(priceWindow, zWindow, DCA_BUDGET, dcaWindow, softmaxModel, softmaxAlpha);
+  // Calculate the actual DCA window for this time period
+  const actualDcaWindow = selectedPrice.length;
   
-  // Calculate cumulative BTC for the 2-year window
+  // DCA calculations using the selected time period
+  const regDca = calculateRegularDCA(selectedPrice, DCA_BUDGET, actualDcaWindow);
+  const tunedDca = calculateTunedDCA(selectedPrice, selectedZScores, DCA_BUDGET, actualDcaWindow, softmaxModel, softmaxAlpha);
+  
+  // Calculate cumulative BTC for the selected time period
   const regCum = regDca.reduce((arr, v, i) => { arr.push((arr[i-1]||0)+v); return arr; }, [] as number[]);
   const tunedCum = tunedDca.reduce((arr, v, i) => { arr.push((arr[i-1]||0)+v); return arr; }, [] as number[]);
   
-  // Latest values from the 2-year window
-  const latestIdx = datesWindow.length - 1;
-  const latestPrice = priceWindow[latestIdx];
+  // Latest values from the selected time period
+  const latestIdx = selectedDates.length - 1;
+  const latestPrice = selectedPrice[latestIdx];
   const latestReg = regCum[latestIdx];
   const latestTuned = tunedCum[latestIdx];
   
   // Debug: Log some sample values to verify calculations
   console.log('DCA Chart Debug:', {
-    samplePrices: priceWindow.slice(0, 5),
+    samplePrices: selectedPrice.slice(0, 5),
     sampleRegDca: regDca.slice(0, 5),
     sampleTunedDca: tunedDca.slice(0, 5),
-    totalRegInvestment: regDca.reduce((sum, btc, i) => sum + (btc * priceWindow[i]), 0),
-    totalTunedInvestment: tunedDca.reduce((sum, btc, i) => sum + (btc * priceWindow[i]), 0),
-    expectedInvestment: DCA_BUDGET * dcaWindow
+    totalRegInvestment: regDca.reduce((sum, btc, i) => sum + (btc * selectedPrice[i]), 0),
+    totalTunedInvestment: tunedDca.reduce((sum, btc, i) => sum + (btc * selectedPrice[i]), 0),
+    expectedInvestment: DCA_BUDGET * actualDcaWindow
   });
   return (
     <div className="bg-black border border-gray-600 p-4 rounded-lg mb-8 w-full h-[500px] flex flex-col">
       <div className="mb-2 flex justify-between items-center">
         <h3 className="text-white font-semibold">
-          DCA Comparison - Daily BTC Purchases (4-Year Rolling Window)
+          DCA Comparison - Daily BTC Purchases (Selected Time Period)
           <span className="text-sm text-gray-400 ml-2">
-            {datesWindow[latestIdx]} | Price: ${latestPrice?.toLocaleString()} | Reg BTC: {latestReg?.toFixed(4)} | Tuned BTC: {latestTuned?.toFixed(4)}
+            {selectedDates[latestIdx]} | Price: ${latestPrice?.toLocaleString()} | Reg BTC: {latestReg?.toFixed(4)} | Tuned BTC: {latestTuned?.toFixed(4)}
           </span>
         </h3>
         <button
@@ -589,8 +594,8 @@ const DCAChart = memo(function DCAChart({
         <Plot
           data={[
             {
-              x: datesWindow,
-              y: priceWindow,
+              x: selectedDates,
+              y: selectedPrice,
               type: 'scatter',
               mode: 'lines',
               name: 'Close Price',
@@ -598,20 +603,20 @@ const DCAChart = memo(function DCAChart({
               yaxis: 'y',
             },
             {
-              x: datesWindow,
+              x: selectedDates,
               y: showDaily ? regDca : regCum,
               type: 'scatter',
               mode: 'lines',
-              name: showDaily ? 'Regular DCA (Daily BTC)' : 'Regular DCA (Cumulative BTC)',
+              name: showDaily ? 'Regular DCA (Daily BTC)' : `Regular DCA (Cumulative BTC: ${latestReg?.toFixed(4)})`,
               line: { color: '#10b981', width: 1.5 },
               yaxis: 'y2',
             },
             {
-              x: datesWindow,
+              x: selectedDates,
               y: showDaily ? tunedDca : tunedCum,
               type: 'scatter',
               mode: 'lines',
-              name: showDaily ? 'Tuned DCA (Daily BTC)' : 'Tuned DCA (Cumulative BTC)',
+              name: showDaily ? 'Tuned DCA (Daily BTC)' : `Tuned DCA (Cumulative BTC: ${latestTuned?.toFixed(4)})`,
               line: { color: '#ef4444', width: 1.5 },
               yaxis: 'y2',
             },
@@ -637,7 +642,7 @@ const DCAChart = memo(function DCAChart({
             },
             yaxis2: {
               title: showDaily ? 'Daily BTC Purchased' : 'Cumulative BTC',
-              type: 'linear',
+              type: 'log',
               gridcolor: '#374151',
               color: '#ffffff',
               side: 'right',
@@ -833,8 +838,12 @@ export default function ChartsPage() {
     // Calculate DCA results for all metrics (same as ranking page)
     const results = Object.entries(optimizedData).map(([metric, data]) => {
       const z = data.zScores;
-      const regDca = calculateRegularDCA(price, DCA_BUDGET, dcaWindow);
-      const tunedDca = calculateTunedDCA(price, z, DCA_BUDGET, dcaWindow, softmaxModel, softmaxAlpha);
+      
+      // Fix: Use actual DCA window based on available data
+      const actualDcaWindow = Math.min(dcaWindow, price.length);
+      
+      const regDca = calculateRegularDCA(price, DCA_BUDGET, actualDcaWindow);
+      const tunedDca = calculateTunedDCA(price, z, DCA_BUDGET, actualDcaWindow, softmaxModel, softmaxAlpha);
       
       const regBtc = regDca.reduce((a, b) => a + b, 0);
       const tunedBtc = tunedDca.reduce((a, b) => a + b, 0);
@@ -842,7 +851,7 @@ export default function ChartsPage() {
       const regUsd = regBtc * currentPrice;
       const tunedUsd = tunedBtc * currentPrice;
       
-      const totalInvestment = DCA_BUDGET * dcaWindow;
+      const totalInvestment = DCA_BUDGET * actualDcaWindow;
       const profit = totalInvestment > 0 
         ? Math.round(((tunedUsd - totalInvestment) / totalInvestment) * 100)
         : 0;
