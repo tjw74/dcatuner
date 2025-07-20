@@ -552,11 +552,20 @@ const DCAChart = memo(function DCAChart({
   const actualDcaWindow = selectedPrice.length;
   
   // DCA calculations using the selected time period
-  const regDca = calculateRegularDCA(selectedPrice, DCA_BUDGET, actualDcaWindow);
-  const tunedDca = calculateTunedDCA(selectedPrice, selectedZScores, DCA_BUDGET, actualDcaWindow, softmaxModel, softmaxAlpha);
+  // Regular DCA is independent of temperature, so memoize it
+  const regDca = useMemo(() => 
+    calculateRegularDCA(selectedPrice, DCA_BUDGET, actualDcaWindow), 
+    [selectedPrice, DCA_BUDGET, actualDcaWindow]
+  );
+  
+  // Tuned DCA depends on temperature, so recalculate when temperature changes
+  const tunedDca = calculateTunedDCA(selectedPrice, selectedZScores, DCA_BUDGET, actualDcaWindow, softmaxModel, localSoftmaxAlpha);
   
   // Calculate cumulative BTC for the selected time period
-  const regCum = regDca.reduce((arr, v, i) => { arr.push((arr[i-1]||0)+v); return arr; }, [] as number[]);
+  const regCum = useMemo(() => 
+    regDca.reduce((arr, v, i) => { arr.push((arr[i-1]||0)+v); return arr; }, [] as number[]),
+    [regDca]
+  );
   const tunedCum = tunedDca.reduce((arr, v, i) => { arr.push((arr[i-1]||0)+v); return arr; }, [] as number[]);
   
   // Latest values from the selected time period
@@ -575,21 +584,66 @@ const DCAChart = memo(function DCAChart({
     expectedInvestment: DCA_BUDGET * actualDcaWindow
   });
   return (
-    <div className="bg-black border border-gray-600 p-4 rounded-lg mb-8 w-full h-[500px] flex flex-col">
-      <div className="mb-2 flex justify-between items-center">
-        <h3 className="text-white font-semibold">
-          DCA Comparison - Daily BTC Purchases (Selected Time Period)
-          <span className="text-sm text-gray-400 ml-2">
-            {selectedDates[latestIdx]} | Price: ${latestPrice?.toLocaleString()} | Reg BTC: {latestReg?.toFixed(4)} | Tuned BTC: {latestTuned?.toFixed(4)}
-          </span>
-        </h3>
-        <button
-          onClick={() => setShowDaily(!showDaily)}
-          className="bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm"
-        >
-          {showDaily ? 'Show Cumulative' : 'Show Daily BTC Purchases'}
-        </button>
+    <div className="bg-black border border-gray-600 p-4 rounded-lg mb-8 w-full">
+      {/* Softmax Parameter Controls */}
+      <div className="mb-4 p-3 bg-gray-900 border border-gray-600 rounded-lg">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-white font-semibold">Softmax Parameters</h4>
+          <button
+            onClick={() => setLocalSoftmaxAlpha(softmaxAlpha)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
+          >
+            Reset
+          </button>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <label className="block text-sm text-gray-300 mb-1">
+              Temperature (α): {localSoftmaxAlpha.toFixed(2)}
+            </label>
+            <input
+              type="range"
+              min="0.1"
+              max="5.0"
+              step="0.1"
+              value={localSoftmaxAlpha}
+              onChange={(e) => setLocalSoftmaxAlpha(parseFloat(e.target.value))}
+              className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, #10b981 0%, #10b981 ${(localSoftmaxAlpha - 0.1) / 4.9 * 100}%, #374151 ${(localSoftmaxAlpha - 0.1) / 4.9 * 100}%, #374151 100%)`
+              }}
+            />
+            <div className="flex justify-between text-xs text-gray-400 mt-1">
+              <span>0.1 (Aggressive)</span>
+              <span>1.0 (Balanced)</span>
+              <span>5.0 (Conservative)</span>
+            </div>
+          </div>
+          <div className="text-right text-sm">
+            <div className="text-gray-300">Performance</div>
+            <div className="text-green-400 font-semibold">
+              +{((latestTuned - latestReg) / latestReg * 100).toFixed(1)}%
+            </div>
+          </div>
+        </div>
       </div>
+      
+      {/* Chart Container */}
+      <div className="h-[500px] flex flex-col">
+        <div className="mb-2 flex justify-between items-center">
+          <h3 className="text-white font-semibold">
+            DCA Comparison - Daily BTC Purchases (Selected Time Period)
+            <span className="text-sm text-gray-400 ml-2">
+              {selectedDates[latestIdx]} | Price: ${latestPrice?.toLocaleString()} | Reg BTC: {latestReg?.toFixed(4)} | Tuned BTC: {latestTuned?.toFixed(4)}
+            </span>
+          </h3>
+          <button
+            onClick={() => setShowDaily(!showDaily)}
+            className="bg-gray-800 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm"
+          >
+            {showDaily ? 'Show Cumulative' : 'Show Daily BTC Purchases'}
+          </button>
+        </div>
       <div className="flex-1 w-full h-full">
         <Plot
           data={[
@@ -676,6 +730,7 @@ const DCAChart = memo(function DCAChart({
         onChange={onTimeRangeChange}
         dates={dates}
       />
+      </div>
     </div>
   );
 });
