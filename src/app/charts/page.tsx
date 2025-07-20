@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react';
 import { fetchAllMetrics, type MetricData } from '@/datamanager';
-import { METRICS_LIST, DERIVED_METRICS } from '@/datamanager/metricsConfig';
+import { METRICS_LIST, DERIVED_METRICS, getMetricDisplayName } from '@/datamanager/metricsConfig';
 import { calculateZScores, Z_SCORE_WINDOWS } from '@/datamanager/zScore';
 import { calculateDerivedMetrics } from '@/datamanager/derivedMetrics';
 import dynamic from 'next/dynamic';
@@ -312,7 +312,7 @@ const ChartComponent = memo(function ChartComponent({
     <div key={metric} className="bg-black border border-gray-600 p-4 rounded-lg">
       <div className="mb-2">
         <h3 className="text-white font-semibold">
-          {metric}
+          {getMetricDisplayName(metric)}
           <span className="text-sm text-gray-400 ml-2">
             {latestDate}: {formattedValue} | Z: {formattedZScore}
           </span>
@@ -325,7 +325,7 @@ const ChartComponent = memo(function ChartComponent({
             y: filteredValues,
             type: 'scatter',
             mode: 'lines',
-            name: `${metric} (Latest: ${formattedValue})`,
+            name: `${getMetricDisplayName(metric)} (Latest: ${formattedValue})`,
             line: { color: '#3b82f6', width: 1 },
             yaxis: 'y',
           },
@@ -351,7 +351,7 @@ const ChartComponent = memo(function ChartComponent({
             color: '#ffffff',
           },
           yaxis: {
-            title: metric,
+            title: getMetricDisplayName(metric),
             type: 'log',
             gridcolor: '#374151',
             color: '#ffffff',
@@ -1155,7 +1155,7 @@ export default function ChartsPage() {
               if (!metricData) {
                 return (
                   <div key={metric} className="bg-black border border-gray-600 p-4 rounded-lg">
-                    <h3 className="text-white font-semibold mb-2">{metric}</h3>
+                    <h3 className="text-white font-semibold mb-2">{getMetricDisplayName(metric)}</h3>
                     <div className="text-red-400">No data available</div>
                   </div>
                 );

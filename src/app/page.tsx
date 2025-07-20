@@ -6,6 +6,7 @@ import { fetchAllMetrics } from "@/datamanager";
 import { calculateDerivedMetrics } from "@/datamanager/derivedMetrics";
 import { calculateZScores, Z_SCORE_WINDOWS } from "@/datamanager/zScore";
 import { calculateRegularDCA, calculateTunedDCA, softmaxModel } from "@/datamanager/dca";
+import { getMetricDisplayName } from "@/datamanager/metricsConfig";
 
 const GRAFANA_BLUE = "#0094FF";
 const LIGHTER_BLACK = "#181A20";
@@ -158,7 +159,7 @@ function TopPerformerCard({ metric, model, profit, btc, outperf, regProfit, regB
         <div className="flex-1">
           <div className="text-4xl font-extrabold text-white drop-shadow">+{profit}%</div>
           <div className="text-xs text-blue-100 mt-1 uppercase tracking-widest font-semibold">Most Profitable</div>
-          <div className="text-lg text-white mt-2 font-medium">{metric} <span className="text-blue-200 font-normal">+ {model}</span></div>
+          <div className="text-lg text-white mt-2 font-medium">{getMetricDisplayName(metric)} <span className="text-blue-200 font-normal">+ {model}</span></div>
         </div>
         <ChevronRight className={`text-blue-200 w-7 h-7 transition-transform ${expanded ? 'rotate-90' : ''}`} />
       </button>
@@ -218,7 +219,7 @@ function MetricModelRow({ metric, model, profit, btc, outperf, regProfit, regBtc
         <div className="flex flex-row items-center w-full">
           <span className="flex items-center justify-center text-base font-bold text-white opacity-40 w-7 h-7 rounded-full bg-transparent select-none mr-2">{rank}</span>
           <div className="flex-1 text-left">
-            <div className="text-white text-base font-semibold">{metric} <span className="text-slate-400 font-normal">+ {model}</span></div>
+            <div className="text-white text-base font-semibold">{getMetricDisplayName(metric)} <span className="text-slate-400 font-normal">+ {model}</span></div>
           </div>
           <div className="text-blue-300 font-bold text-lg mr-2 whitespace-nowrap">+{profit}%</div>
           <ChevronRight className={`text-slate-500 w-5 h-5 ml-1 transition-transform ${expanded ? 'rotate-90' : ''}`} />

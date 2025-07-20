@@ -24,6 +24,35 @@ export const METRICS_LIST = [
   'short-term-holders-coinblocks-destroyed',
 ];
 
+// User-friendly display names for metrics
+export const METRIC_DISPLAY_NAMES: Record<string, string> = {
+  'close': 'Bitcoin Price',
+  'realized-price': 'Realized Price',
+  '200d-sma': '200-Day SMA',
+  'true-market-mean': 'True Market Mean',
+  'vaulted-price': 'Vaulted Price',
+  'marketcap': 'Market Cap',
+  'realized-cap': 'Realized Cap',
+  'adjusted-spent-output-profit-ratio': 'Adjusted SOPR',
+  'sell-side-risk-ratio': 'Sell-Side Risk',
+  'liveliness': 'Liveliness',
+  'short-term-holders-supply': 'STH Supply',
+  'short-term-holders-utxo-count': 'STH UTXO Count',
+  'short-term-holders-realized-cap': 'STH Realized Cap',
+  'short-term-holders-realized-price-ratio': 'STH Realized Price Ratio',
+  'short-term-holders-realized-profit': 'STH Realized Profit',
+  'short-term-holders-negative-realized-loss': 'STH Realized Loss',
+  'short-term-holders-adjusted-spent-output-profit-ratio': 'STH Adjusted SOPR',
+  'short-term-holders-unrealized-profit': 'STH Unrealized Profit',
+  'short-term-holders-negative-unrealized-loss': 'STH Unrealized Loss',
+  'short-term-holders-coinblocks-destroyed': 'STH Coinblocks Destroyed',
+};
+
+// Helper function to get display name for any metric
+export function getMetricDisplayName(metric: string): string {
+  return METRIC_DISPLAY_NAMES[metric] || metric;
+}
+
 // Derived metrics with formulas
 export const DERIVED_METRICS = [
   {

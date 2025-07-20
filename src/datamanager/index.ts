@@ -4,5 +4,5 @@ export { fetchAllMetrics, fetchLatestDate, type MetricData } from './fetchMetric
 export { calculateDerivedMetrics } from './derivedMetrics';
 export { calculateZScores, Z_SCORE_WINDOWS } from './zScore';
 export { calculateRegularDCA, calculateTunedDCA, softmaxModel, dcaModels } from './dca';
-export { METRICS_LIST, DERIVED_METRICS } from './metricsConfig';
+export { METRICS_LIST, DERIVED_METRICS, getMetricDisplayName, METRIC_DISPLAY_NAMES } from './metricsConfig';
 export { softmax } from './models/softmax'; 
