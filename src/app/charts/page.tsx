@@ -91,6 +91,19 @@ const MVRVCompositeChart = memo(function MVRVCompositeChart({
   timeRange: [number, number];
   onTimeRangeChange: (range: [number, number]) => void;
 }) {
+  // State to track trace visibility
+  const [traceVisibility, setTraceVisibility] = useState<{
+    marketCap: boolean;
+    realizedCap: boolean;
+    mvrvRatio: boolean;
+    mvrvZScore: boolean;
+  }>({
+    marketCap: true,
+    realizedCap: true,
+    mvrvRatio: true,
+    mvrvZScore: true,
+  });
+
   // Memoize filtered data to avoid recalculating on every render
   const filteredData = useMemo(() => {
     const filteredDates = dates.slice(timeRange[0], timeRange[1] + 1);
@@ -132,6 +145,28 @@ const MVRVCompositeChart = memo(function MVRVCompositeChart({
     formattedMVRVZScore 
   } = filteredData;
 
+
+
+  // Handle plot updates (including legend clicks)
+  const handleUpdate = useCallback((figure: any) => {
+    if (figure && figure.data) {
+      const newVisibility = {
+        marketCap: figure.data[0]?.visible !== 'legendonly',
+        realizedCap: figure.data[1]?.visible !== 'legendonly',
+        mvrvRatio: figure.data[2]?.visible !== 'legendonly',
+        mvrvZScore: figure.data[3]?.visible !== 'legendonly',
+      };
+      
+      // Only update if visibility actually changed
+      if (newVisibility.marketCap !== traceVisibility.marketCap || 
+          newVisibility.realizedCap !== traceVisibility.realizedCap ||
+          newVisibility.mvrvRatio !== traceVisibility.mvrvRatio ||
+          newVisibility.mvrvZScore !== traceVisibility.mvrvZScore) {
+        setTraceVisibility(newVisibility);
+      }
+    }
+  }, [traceVisibility]);
+
   return (
     <div className="bg-black border border-gray-600 p-4 rounded-lg">
       <div className="mb-2">
@@ -149,36 +184,40 @@ const MVRVCompositeChart = memo(function MVRVCompositeChart({
             y: filteredMarketCap,
             type: 'scatter',
             mode: 'lines',
-            name: `Market Cap`,
+            name: 'Market Cap',
             line: { color: '#10b981', width: 1 },
             yaxis: 'y',
+            visible: traceVisibility.marketCap ? true : 'legendonly',
           },
           {
             x: filteredDates,
             y: filteredRealizedCap,
             type: 'scatter',
             mode: 'lines',
-            name: `Realized Cap`,
+            name: 'Realized Cap',
             line: { color: '#8b5cf6', width: 1 },
             yaxis: 'y',
+            visible: traceVisibility.realizedCap ? true : 'legendonly',
           },
           {
             x: filteredDates,
             y: filteredMVRV,
             type: 'scatter',
             mode: 'lines',
-            name: `MVRV Ratio (${formattedMVRV})`,
+            name: 'MVRV Ratio',
             line: { color: '#3b82f6', width: 1.5 },
             yaxis: 'y2',
+            visible: traceVisibility.mvrvRatio ? true : 'legendonly',
           },
           {
             x: filteredDates,
             y: filteredMVRVZScore,
             type: 'scatter',
             mode: 'lines',
-            name: `MVRV Z-Score (${formattedMVRVZScore})`,
+            name: 'MVRV Z-Score',
             line: { color: '#ef4444', width: 1 },
             yaxis: 'y2',
+            visible: traceVisibility.mvrvZScore ? true : 'legendonly',
           },
         ]}
         layout={{
@@ -239,6 +278,7 @@ const MVRVCompositeChart = memo(function MVRVCompositeChart({
           responsive: true,
         }}
         useResizeHandler={true}
+        onUpdate={handleUpdate}
       />
       <TimeRangeSlider
         min={0}
@@ -267,6 +307,15 @@ const ChartComponent = memo(function ChartComponent({
   timeRange: [number, number];
   onTimeRangeChange: (range: [number, number]) => void;
 }) {
+  // State to track trace visibility
+  const [traceVisibility, setTraceVisibility] = useState<{
+    metric: boolean;
+    zScore: boolean;
+  }>({
+    metric: true,
+    zScore: true,
+  });
+
   // Memoize filtered data to avoid recalculating on every render
   const filteredData = useMemo(() => {
     const filteredDates = dates.slice(timeRange[0], timeRange[1] + 1);
@@ -308,6 +357,21 @@ const ChartComponent = memo(function ChartComponent({
     formattedZScore 
   } = filteredData;
 
+  // Handle plot updates (including legend clicks)
+  const handleUpdate = useCallback((figure: any) => {
+    if (figure && figure.data) {
+      const newVisibility = {
+        metric: figure.data[0]?.visible !== 'legendonly',
+        zScore: figure.data[1]?.visible !== 'legendonly',
+      };
+      
+      // Only update if visibility actually changed
+      if (newVisibility.metric !== traceVisibility.metric || newVisibility.zScore !== traceVisibility.zScore) {
+        setTraceVisibility(newVisibility);
+      }
+    }
+  }, [traceVisibility]);
+
   return (
     <div key={metric} className="bg-black border border-gray-600 p-4 rounded-lg">
       <div className="mb-2">
@@ -325,18 +389,20 @@ const ChartComponent = memo(function ChartComponent({
             y: filteredValues,
             type: 'scatter',
             mode: 'lines',
-            name: `${getMetricDisplayName(metric)} (Latest: ${formattedValue})`,
+            name: getMetricDisplayName(metric),
             line: { color: '#3b82f6', width: 1 },
             yaxis: 'y',
+            visible: traceVisibility.metric ? true : 'legendonly',
           },
           {
             x: filteredDates,
             y: filteredZScores,
             type: 'scatter',
             mode: 'lines',
-            name: `Z-Score (Latest: ${formattedZScore})`,
+            name: 'Z-Score',
             line: { color: '#ef4444', width: 1 },
             yaxis: 'y2',
+            visible: traceVisibility.zScore ? true : 'legendonly',
           },
         ]}
         layout={{
@@ -397,6 +463,7 @@ const ChartComponent = memo(function ChartComponent({
           responsive: true,
         }}
         useResizeHandler={true}
+        onUpdate={handleUpdate}
       />
       <TimeRangeSlider
         min={0}
